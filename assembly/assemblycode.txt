@@ -1,0 +1,2 @@
+# abyss on paired end reads. Khmer 96 bp on unknown genome.
+abyss-pe name=reading k=96 B=2G in='S13_P3_14_S30_R1_001.fastq S13_P3_14_S30_R2_001.fastq'
