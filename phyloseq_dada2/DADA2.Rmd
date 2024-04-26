@@ -1,0 +1,89 @@
+---
+title: "DADA2"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Load required packages
+```{r}
+library(dada2)
+```
+
+#Load sequences
+```{r}
+path <- "~/MiSeq_SOP"
+list.files(path)
+```
+# read in file names
+```{r}
+fnFs <- sort(list.files(path, pattern="_R1_001.fastq", full.names = TRUE))
+sample.names <- sapply(strsplit(basename(fnFs), "_"), `[`,1)
+```
+# inspect read quality
+```{r}
+plotQualityProfile(fnFs[1:2])
+```
+# filter and trim
+```{r}
+filtFs <- file.path(path, "filtered", pasteO(sample.names, "_F_filt.fastq.gz"))
+names(filtFs) <- sample.names
+out <- filterAndTrim(fnFs, filtFs, truncLen=c(120), maxN=0, maxEE=c(2), tuncQ=2, rm.phix=TRUE, compress=TRUE, multithread=FALSE)
+```
+#learn error rates
+```{r}
+errF <- learnErrors(filtFs, multithread=FALSE)
+```
+
+```{r}
+plotErrors(errF, nominalQ = TRUE)
+```
+```{r}
+dadaFs <- dada(filtFs, err=errF, multithread = FALSE)
+```
+# create sequence table
+```{r}
+seqtab <- makeSequenceTable(dadaFs)
+dim(seqtab)
+```
+#inspect distribution of sequence lengths
+```{r}
+table(nchar(getSequences(seqtab)))
+```
+
+#remove chimera
+```{r}
+seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=FALSE, verbose = TRUE)
+```
+
+```{r}
+dim(seqtab.nochim)
+```
+
+#track reads through pipeline
+```{r}
+getN <- function(x) sum(getUniques(x))
+track <- cbind(out), sapply(dadaFs, getN), rowSums(seqtab.nochim))
+colnames(track) <- c("input", "filtered", "denoisedF", "nonchim")
+rownames(track) <-  sample.names
+head(track)
+```
+#save sebtab.nochim as an R file
+```{r}
+save(seqtab.nochim, file="RData/seqtab.nochim.RData")
+```
+#load seqtab.nochim to start here
+```{r}
+load("RData/seqtab.nochim.RData")
+```
+#assign taxonomy 
+```{r}
+taxa <- assignTaxonomy(seqtab.nochim, "silva_nr99_v138.1_wSpecies_train_set.fa.gz")
+```
+
+#save taxonomy as a file
+```{r}
+save(taxa, file = "RData/taxa.RData")
+```
+
